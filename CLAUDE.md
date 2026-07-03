@@ -21,7 +21,15 @@ Interface web (portfólio) para a [Digital Wallet API](https://github.com/DevTM7
 - Componentes funcionais
 - Textos da UI em português (pt-BR)
 - Acessibilidade básica: inputs com `label`, atributos `aria` onde fizer sentido
+- Visual: uma única cor de destaque (indigo-600) sobre neutros zinc; vermelho/verde/âmbar apenas para estados semânticos (erro/sucesso/aviso)
 - `amount`/`balance` trafegam como **strings** (decisão da API para evitar erro de ponto flutuante); a formatação para exibição (BRL, datas) acontece na UI via `src/lib/format.ts`
+
+## Dicas de desenvolvimento
+
+- Backend local: `../digital-wallet-api`, sobe com `docker compose up -d`; se o navegador acusar "API fora do ar" mas `curl` responder, o preflight CORS está falhando por imagem Docker desatualizada → `docker compose up -d --build`
+- Lint do Next 16 (`react-hooks/set-state-in-effect`): não chamar setState (nem função que o contenha) sincronamente no corpo de `useEffect` — usar `useSyncExternalStore` para stores externas (ver `src/lib/recents.ts`) ou aplicar estado em callbacks `.then(aplicar, aplicarErro)` (ver `WalletDashboard`)
+- Teste manual e2e: `playwright-core` com o Chrome do sistema (`chromium.launch({ channel: "chrome" })`); macOS não tem `timeout` — usar loop com `sleep`
+- Screenshots do README ficam em `docs/screenshots/{home,dashboard,statement}.png`; antes de capturar, esconder o badge dev do Next com CSS `nextjs-portal{display:none!important}`
 
 ## Versionamento
 
