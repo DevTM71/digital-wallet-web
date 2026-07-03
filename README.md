@@ -7,6 +7,8 @@ Interface web em **Next.js + TypeScript + Tailwind CSS** para a [Digital Wallet 
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-06B6D4?logo=tailwindcss&logoColor=white)
 ![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)
 
+> 🌐 **Acesse ao vivo:** [digital-wallet-portfolio.vercel.app](https://digital-wallet-portfolio.vercel.app) — consumindo a API em produção ([digital-wallet-api-kh9c.onrender.com/docs](https://digital-wallet-api-kh9c.onrender.com/docs))
+
 ## Screenshots
 
 **Extrato** — o fluxo de eventos renderizado: cada linha é um evento de domínio, com saldo acumulado após cada um.
@@ -62,6 +64,8 @@ npm run dev                        # abre em http://localhost:3000
 ```
 
 A URL da API é lida de `NEXT_PUBLIC_API_URL`. Se o front rodar em outra origem, inclua essa origem no `CORS_ORIGINS` do backend (por padrão ele permite `http://localhost:3000`).
+
+O deploy de produção roda na **Vercel**, com `NEXT_PUBLIC_API_URL` apontando para a [API no Render](https://digital-wallet-api-kh9c.onrender.com/docs).
 
 ---
 
