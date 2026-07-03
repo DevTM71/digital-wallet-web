@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type AlertVariant = "error" | "success" | "warning";
+type AlertVariant = "error" | "success" | "warning" | "info";
 
 const styles: Record<AlertVariant, string> = {
   error:
@@ -9,6 +9,8 @@ const styles: Record<AlertVariant, string> = {
     "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300",
   warning:
     "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300",
+  info:
+    "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300",
 };
 
 interface AlertProps {

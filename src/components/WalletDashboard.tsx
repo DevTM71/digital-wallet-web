@@ -11,6 +11,7 @@ import {
   getWallet,
   withdraw,
 } from "@/lib/api";
+import { useReconnecting } from "@/lib/connection";
 import { formatBRL } from "@/lib/format";
 import { addRecent } from "@/lib/recents";
 import type { Statement, Wallet } from "@/lib/types";
@@ -35,7 +36,11 @@ function BackLink() {
   );
 }
 
+const RECONNECTING_MESSAGE =
+  "Conectando ao servidor… isso pode levar alguns segundos.";
+
 export function WalletDashboard({ walletId }: { walletId: string }) {
+  const reconnecting = useReconnecting();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [statement, setStatement] = useState<Statement | null>(null);
   const [statementError, setStatementError] = useState<string | null>(null);
@@ -154,7 +159,7 @@ export function WalletDashboard({ walletId }: { walletId: string }) {
     return (
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
         <BackLink />
-        {globalError ? (
+        {globalError && !reconnecting ? (
           <div className="mt-8 flex flex-col items-start gap-4">
             <Alert variant="warning">{globalError}</Alert>
             <Button onClick={refresh} loading={refreshing}>
@@ -167,6 +172,9 @@ export function WalletDashboard({ walletId }: { walletId: string }) {
             role="status"
             aria-label="Carregando carteira"
           >
+            {reconnecting && (
+              <Alert variant="info">{RECONNECTING_MESSAGE}</Alert>
+            )}
             <div className="h-44 animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="h-72 animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
@@ -182,10 +190,16 @@ export function WalletDashboard({ walletId }: { walletId: string }) {
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
       <BackLink />
 
-      {globalError && (
-        <Alert variant="warning" className="mt-4">
-          {globalError}
+      {reconnecting ? (
+        <Alert variant="info" className="mt-4">
+          {RECONNECTING_MESSAGE}
         </Alert>
+      ) : (
+        globalError && (
+          <Alert variant="warning" className="mt-4">
+            {globalError}
+          </Alert>
+        )
       )}
 
       <section

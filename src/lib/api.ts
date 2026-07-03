@@ -4,11 +4,20 @@
  * Erros da API (404/409/422, corpo `{detail: string}`) viram `ApiError`;
  * falha de rede (API fora do ar) vira `ApiUnavailableError`, para que a UI
  * consiga distinguir "regra de negócio violada" de "backend inacessível".
+ *
+ * Resiliência a religamento do backend (deploy/manutenção no Render):
+ * toda requisição tem timeout, e GETs — idempotentes — ganham até 2 retries
+ * com backoff, sinalizados à UI via `connection.ts`. POSTs nunca sofrem
+ * retry automático: depósito/saque não podem correr risco de duplicar.
  */
 
+import { beginReconnecting, endReconnecting } from "./connection";
 import type { Statement, Wallet, WalletCreated } from "./types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+const REQUEST_TIMEOUT_MS = 12_000;
+const RETRY_BACKOFF_MS = [2_000, 5_000];
 
 const GENERIC_ERROR_DETAIL = "Erro inesperado ao comunicar com a API.";
 
@@ -61,27 +70,92 @@ async function extractDetail(response: Response): Promise<string> {
   return GENERIC_ERROR_DETAIL;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}${path}`, {
+export interface RequesterDeps {
+  fetchImpl: typeof fetch;
+  sleep: (ms: number) => Promise<void>;
+  /** Início/fim de um ciclo de retries — a UI mostra "conectando…". */
+  onRetryStart: () => void;
+  onRetryEnd: () => void;
+}
+
+/**
+ * Fábrica do `request` com dependências injetáveis (fetch, sleep e
+ * notificação de retry) para permitir teste unitário da lógica de
+ * timeout/retry sem rede nem timers reais.
+ */
+export function createRequester(deps: RequesterDeps) {
+  async function attempt(url: string, init: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await deps.fetchImpl(url, { ...init, signal: controller.signal });
+    } catch {
+      // falha de rede ou timeout (abort) — HTTP com status de erro não cai aqui
+      throw new ApiUnavailableError();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function attemptWithRetries(
+    url: string,
+    init: RequestInit,
+  ): Promise<Response> {
+    try {
+      return await attempt(url, init);
+    } catch (error) {
+      deps.onRetryStart();
+      try {
+        for (const backoffMs of RETRY_BACKOFF_MS) {
+          await deps.sleep(backoffMs);
+          try {
+            return await attempt(url, init);
+          } catch {
+            // próxima tentativa (ou erro definitivo abaixo)
+          }
+        }
+        throw error;
+      } finally {
+        deps.onRetryEnd();
+      }
+    }
+  }
+
+  return async function request<T>(
+    path: string,
+    init: RequestInit = {},
+  ): Promise<T> {
+    const url = `${API_URL}${path}`;
+    const finalInit: RequestInit = {
       ...init,
       headers: { "Content-Type": "application/json", ...init.headers },
-    });
-  } catch {
-    throw new ApiUnavailableError();
-  }
+    };
 
-  if (!response.ok) {
-    throw new ApiError(response.status, await extractDetail(response));
-  }
+    // Só GET é idempotente; repetir um POST poderia duplicar depósito/saque
+    const retryable = (init.method ?? "GET") === "GET";
+    const response = retryable
+      ? await attemptWithRetries(url, finalInit)
+      : await attempt(url, finalInit);
 
-  // Depósito e saque respondem 204 No Content
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
+    if (!response.ok) {
+      throw new ApiError(response.status, await extractDetail(response));
+    }
+
+    // Depósito e saque respondem 204 No Content
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
+  };
 }
+
+const request = createRequester({
+  // arrow para não perder o `this` do fetch do navegador
+  fetchImpl: (input, init) => fetch(input, init),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  onRetryStart: beginReconnecting,
+  onRetryEnd: endReconnecting,
+});
 
 export function openWallet(ownerName: string): Promise<WalletCreated> {
   return request<WalletCreated>("/wallets", {
