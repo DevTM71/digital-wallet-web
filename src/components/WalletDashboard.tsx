@@ -2,13 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ApiError, deposit, errorMessage, getWallet, withdraw } from "@/lib/api";
+import {
+  ApiError,
+  ApiUnavailableError,
+  deposit,
+  errorMessage,
+  getStatement,
+  getWallet,
+  withdraw,
+} from "@/lib/api";
 import { formatBRL } from "@/lib/format";
 import { addRecent } from "@/lib/recents";
-import type { Wallet } from "@/lib/types";
+import type { Statement, Wallet } from "@/lib/types";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
+import { StatementSection } from "@/components/StatementSection";
 import { TransactionForm } from "@/components/TransactionForm";
 
 interface Toast {
@@ -29,9 +37,11 @@ function BackLink() {
 
 export function WalletDashboard({ walletId }: { walletId: string }) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [statement, setStatement] = useState<Statement | null>(null);
+  const [statementError, setStatementError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
-  const [retrying, setRetrying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [copied, setCopied] = useState(false);
   const toastKey = useRef(0);
@@ -52,9 +62,31 @@ export function WalletDashboard({ walletId }: { walletId: string }) {
     }
   }, []);
 
+  const aplicarExtrato = useCallback((dados: Statement) => {
+    setStatement(dados);
+    setStatementError(null);
+  }, []);
+
+  const aplicarErroExtrato = useCallback((erro: unknown) => {
+    // 404 já vira a tela de "não encontrada" pelo load da carteira; API
+    // fora do ar vira o aviso global — o resto fica no cartão do extrato
+    if (erro instanceof ApiError && erro.status === 404) {
+      return;
+    }
+    if (erro instanceof ApiUnavailableError) {
+      setGlobalError(errorMessage(erro));
+      return;
+    }
+    setStatementError(errorMessage(erro));
+  }, []);
+
   const load = useCallback(
-    () => getWallet(walletId).then(aplicarCarteira, aplicarErro),
-    [walletId, aplicarCarteira, aplicarErro],
+    () =>
+      Promise.all([
+        getWallet(walletId).then(aplicarCarteira, aplicarErro),
+        getStatement(walletId).then(aplicarExtrato, aplicarErroExtrato),
+      ]),
+    [walletId, aplicarCarteira, aplicarErro, aplicarExtrato, aplicarErroExtrato],
   );
 
   useEffect(() => {
@@ -75,10 +107,10 @@ export function WalletDashboard({ walletId }: { walletId: string }) {
     setToast({ key: toastKey.current, message });
   }
 
-  async function retry() {
-    setRetrying(true);
+  async function refresh() {
+    setRefreshing(true);
     await load();
-    setRetrying(false);
+    setRefreshing(false);
   }
 
   async function copyId() {
@@ -125,7 +157,7 @@ export function WalletDashboard({ walletId }: { walletId: string }) {
         {globalError ? (
           <div className="mt-8 flex flex-col items-start gap-4">
             <Alert variant="warning">{globalError}</Alert>
-            <Button onClick={retry} loading={retrying}>
+            <Button onClick={refresh} loading={refreshing}>
               Tentar novamente
             </Button>
           </div>
@@ -211,11 +243,12 @@ export function WalletDashboard({ walletId }: { walletId: string }) {
         />
       </div>
 
-      <Card title="Extrato" className="mt-5">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          O histórico de movimentações da carteira aparecerá aqui.
-        </p>
-      </Card>
+      <StatementSection
+        statement={statement}
+        error={statementError}
+        refreshing={refreshing}
+        onRefresh={refresh}
+      />
 
       {toast && (
         <div
