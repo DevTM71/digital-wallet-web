@@ -8,7 +8,7 @@
 
 import type { Statement, Wallet, WalletCreated } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const GENERIC_ERROR_DETAIL = "Erro inesperado ao comunicar com a API.";
 
@@ -29,6 +29,22 @@ export class ApiUnavailableError extends Error {
     super("Não foi possível conectar à API. Verifique se ela está no ar.");
     this.name = "ApiUnavailableError";
   }
+}
+
+/** Converte qualquer erro do cliente em mensagem pronta para a UI. */
+export function errorMessage(error: unknown): string {
+  if (error instanceof ApiUnavailableError) {
+    return `API fora do ar — verifique se o backend está rodando em ${API_URL}`;
+  }
+  if (error instanceof ApiError) {
+    // 422 de validação de borda (FastAPI) traz `detail` como lista e cai
+    // no fallback genérico; para o usuário, é sempre um valor inválido
+    if (error.status === 422 && error.detail === GENERIC_ERROR_DETAIL) {
+      return "Valor inválido.";
+    }
+    return error.detail;
+  }
+  return GENERIC_ERROR_DETAIL;
 }
 
 async function extractDetail(response: Response): Promise<string> {
