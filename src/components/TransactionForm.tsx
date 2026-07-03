@@ -2,9 +2,11 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { ApiUnavailableError, errorMessage } from "@/lib/api";
+import { amountFromDigits } from "@/lib/format";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { CurrencyField } from "@/components/CurrencyField";
 import { TextField } from "@/components/TextField";
 
 interface TransactionFormProps {
@@ -20,22 +22,6 @@ interface TransactionFormProps {
   onUnavailable: (message: string) => void;
 }
 
-/**
- * Valida e normaliza o valor digitado: aceita vírgula ou ponto como
- * separador decimal, exige número > 0 com até 2 casas. Regras de negócio
- * (ex.: saldo insuficiente) ficam no backend.
- */
-function normalizeAmount(input: string): string | null {
-  const normalized = input.trim().replace(",", ".");
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
-    return null;
-  }
-  if (Number(normalized) <= 0) {
-    return null;
-  }
-  return normalized;
-}
-
 export function TransactionForm({
   title,
   description,
@@ -46,23 +32,23 @@ export function TransactionForm({
   onUnavailable,
 }: TransactionFormProps) {
   const uid = useId();
-  const [amount, setAmount] = useState("");
+  const [amountDigits, setAmountDigits] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalized = normalizeAmount(amount);
+    const normalized = amountFromDigits(amountDigits);
     if (normalized === null) {
-      setError("Informe um valor maior que zero, com até duas casas decimais.");
+      setError("Informe um valor maior que zero.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
       await action(normalized, note.trim());
-      setAmount("");
+      setAmountDigits("");
       setNote("");
       await onSuccess();
     } catch (erro) {
@@ -80,14 +66,12 @@ export function TransactionForm({
     <Card title={title}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
-        <TextField
+        <CurrencyField
           id={`${uid}-amount`}
           label="Valor (R$)"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
+          digits={amountDigits}
+          onDigitsChange={setAmountDigits}
           placeholder="0,00"
-          inputMode="decimal"
-          autoComplete="off"
           required
         />
         <TextField
