@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Digital Wallet",
-  description: "Interface web para a Digital Wallet API",
+  description:
+    "Interface web para a Digital Wallet API — abra carteiras, deposite, saque e acompanhe o extrato.",
 };
 
 export default function RootLayout({
