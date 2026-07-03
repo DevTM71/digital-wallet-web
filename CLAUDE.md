@@ -9,6 +9,11 @@ Interface web (portfólio) para a [Digital Wallet API](https://github.com/DevTM7
 - Next.js (App Router) + TypeScript + Tailwind CSS
 - A URL da API vem de `NEXT_PUBLIC_API_URL` (ver `.env.local.example`)
 
+## Produção
+
+- Interface web: https://digital-wallet-portfolio.vercel.app (Vercel, com `NEXT_PUBLIC_API_URL` apontando para a API no Render)
+- API: https://digital-wallet-api-kh9c.onrender.com (Render free tier — Swagger em `/docs`; cold start raro de ~1 min, o front cobre com timeout + retry em GET); banco PostgreSQL gerenciado (Neon)
+
 ## Arquitetura de pastas
 
 - `src/lib` — cliente da API (`api.ts`), tipos do contrato (`types.ts`) e helpers de formatação (`format.ts`)
